@@ -1,0 +1,16 @@
+name: Publish preview APK download
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and attach the existing signed preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum --check downloads/SHA256SUMS.txt
+          gh release upload v1.0.1-preview downloads/hyrule-watch-1.0.1-preview.apk downloads/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
