@@ -1,0 +1,15 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {parseOffer,ONLINE} from '../worker/parser.js';
+import worker from '../dist/server/index.js';
+import {client} from '../worker/ui.js';
+const name='Nintendo Switch 2 The Legend of Zelda 40th Anniversary Edition';
+const url='https://www.nintendo.com/us/store/products/nintendo-switch-2-the-legend-of-zelda-40th-anniversary-edition-121642/';
+const schema=stock=>'<script type="application/ld+json">'+JSON.stringify({'@type':'Product',name,offers:{price:'519.99',priceCurrency:'USD',availability:'https://schema.org/'+stock}})+'</script>';
+const orderable=flag=>'<script id="__NEXT_DATA__">'+JSON.stringify({props:{pageProps:{analytics:{product:{sku:'121642',name}},initialApolloState:{'Product:{"sku":"121642"}':{sku:'121642',name,isSalableQty:flag}}}}})+'</script>';
+test('general stock never proves ZIP availability',()=>{assert.equal(parseOffer(schema('InStock'),'console','https://www.gamestop.com/product').stock,'Availability unverified');});
+test('Nintendo false overrides optimistic schema',()=>{assert.equal(parseOffer(schema('InStock')+orderable(false),'console',url).stock,'Not orderable online');});
+test('Nintendo positive requires exact SKU and boolean flag',()=>{assert.equal(parseOffer(schema('InStock')+orderable(true),'console',url).stock,ONLINE);assert.equal(parseOffer(schema('InStock')+orderable('true'),'console',url).stock,'Availability unverified');assert.equal(parseOffer(schema('InStock')+orderable(true),'console',url.replace('121642','127074')).stock,'Availability unverified');});
+test('wrong variant, malformed data and conflicting offers fail closed',()=>{assert.equal(parseOffer(schema('InStock'),'controller',url).stock,'Unknown');assert.equal(parseOffer('bot challenge','console',url).stock,'Unknown');assert.equal(parseOffer(schema('InStock')+schema('OutOfStock'),'console',url).stock,'Unknown');});
+test('website serves HTML, CSS and syntactically valid client JS',async()=>{for(const path of ['/','/style.css','/app.js'])assert.equal((await worker.fetch(new Request('https://test.invalid'+path))).status,200);new Function(client);});
+test('arbitrary fetch targets and mutation methods are rejected',async()=>{assert.equal((await worker.fetch(new Request('https://test.invalid/api/check?id=https://127.0.0.1'))).status,400);assert.equal((await worker.fetch(new Request('https://test.invalid/',{method:'POST'}))).status,405);});
+test('check API returns scoped product reports and never ZIP verification',async()=>{const original=globalThis.fetch;globalThis.fetch=async()=>new Response(schema('InStock')+orderable(false),{headers:{'Content-Type':'text/html'}});try{const response=await worker.fetch(new Request('https://test.invalid/api/check?id=nintendo-console'));const data=await response.json();assert.equal(data.stock,'Not orderable online');assert.equal(data.zipVerified,false);assert.equal(data.price,'519.99');}finally{globalThis.fetch=original;}});
