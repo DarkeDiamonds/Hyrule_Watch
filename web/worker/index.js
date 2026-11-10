@@ -1,6 +1,8 @@
 import {parseOffer} from './parser.js';
 import {products} from './products.js';
 import {html,css,client} from './ui.js';
+// ponytail: at most seven cached reports per warm isolate; use durable cache only if needed.
+const reports=new Map();
 const headers={'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"};
 export default {async fetch(request,env,ctx){
  const url=new URL(request.url);
@@ -10,8 +12,8 @@ export default {async fetch(request,env,ctx){
  if(url.pathname!=='/api/check')return new Response('Not found',{status:404,headers});
  const product=products.find(p=>p.id===url.searchParams.get('id'));
  if(!product)return Response.json({error:'Unknown listing'},{status:400,headers});
- const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/check?id='+product.id);
- if(cache){const cached=await cache.match(key);if(cached)return cached;}
+ const cached=reports.get(product.id);
+ if(cached&&cached.expires>Date.now())return Response.json(cached.data,{headers:{...headers,'Cache-Control':'public, max-age=60'}});
  let result={stock:'Unknown',price:'',note:'Needs a browser check.'};
  try{
   const response=await fetch(product.url,{redirect:'manual',signal:AbortSignal.timeout(12000),headers:{'User-Agent':'HyruleWatch/1.0 (personal stock tracker)','Accept':'text/html','Cache-Control':'no-cache'}});
@@ -25,7 +27,7 @@ export default {async fetch(request,env,ctx){
   if(result.stock==='Not orderable online')result.note='Nintendo marks this exact product unavailable to order online.';
   if(result.stock==='Unknown')result.note='No reliable availability data. Open the retailer to check.';
  }catch{result.note='Automated check unavailable or blocked. Open the retailer to check.';}
- const response=Response.json({...result,id:product.id,checked:new Date().toISOString(),zipVerified:false},{headers:{...headers,'Cache-Control':'public, max-age=60'}});
- if(cache&&ctx)ctx.waitUntil(cache.put(key,response.clone()));
- return response;
+ const data={...result,id:product.id,checked:new Date().toISOString(),zipVerified:false};
+ reports.set(product.id,{data,expires:Date.now()+60000});
+ return Response.json(data,{headers:{...headers,'Cache-Control':'public, max-age=60'}});
 }};
