@@ -4,7 +4,7 @@ A native Android stock and price tracker for **The Legend of Zelda 40th Annivers
 
 ## Install
 
-Download `hyrule-watch-1.0.1-preview.apk` from the repository's Releases page on your Android phone and allow installation from that download source when Android prompts. Requires Android 8.0 or newer. This is a debug-signed preview, not a Play Store release; use a managed release signing key before distributing production updates.
+Download [hyrule-watch-1.0.1-preview.apk](https://github.com/DarkeDiamonds/Hyrule_Watch/raw/refs/heads/main/downloads/hyrule-watch-1.0.1-preview.apk) (also linked from the repository's Releases page) on your Android phone and allow installation from that download source when Android prompts. Requires Android 8.0 or newer. This is a debug-signed preview, not a Play Store release; use a managed release signing key before distributing production updates.
 
 1. Open the app and tap **Check stock**.
 2. Open **Settings** to change the ZIP, enable background checks, and enable notifications. Allow Android notification permission when prompted.
