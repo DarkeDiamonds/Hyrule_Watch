@@ -1,5 +1,7 @@
 # Hyrule Watch web
 
+Public website: https://hyrule-watch-dd.thinlight2.chatgpt.site
+
 A dependency-free browser interface and Cloudflare Worker for US retailer listing checks. Default US ZIP 80227 is editable and browser-local. No account, database, analytics, private inventory API or purchased domain.
 
 Run `npm run build` and `npm test`. Build produces `dist/server/index.js` and deployment metadata. Source modules live in `worker/`; the small build script inlines the local modules. Sites helper scripts were unavailable in this environment, so source is synchronized with ordinary Git and the artifact is packaged with tar.

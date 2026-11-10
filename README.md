@@ -1,6 +1,6 @@
 # Hyrule Watch
 
-A browser version is available in [`web/`](web/README.md). It supports editable US ZIP reminders, retailer report checks, price targets and browser-local history without an APK. The public website link is listed here once publication succeeds.
+A browser version is available in [`web/`](web/README.md). It supports editable US ZIP reminders, retailer report checks, price targets and browser-local history without an APK. Open the public website: https://hyrule-watch-dd.thinlight2.chatgpt.site
 
 A native Android stock and price tracker for **The Legend of Zelda 40th Anniversary** Nintendo Switch 2 console, Pro Controller, and Pro Controller with display stand. Built for US shoppers, with an editable ZIP code (**80227** by default). Each person can set their own US ZIP in Settings; coverage is currently limited to US retailer sites.
 
