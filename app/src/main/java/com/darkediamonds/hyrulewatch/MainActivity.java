@@ -60,12 +60,12 @@ public final class MainActivity extends Activity {
         TextView headline = text("Find your piece\nof the legend.", 34, TEXT); headline.setTypeface(Typeface.create("serif",Typeface.NORMAL)); content.addView(headline);
         content.addView(text("THE LEGEND OF ZELDA · 40TH ANNIVERSARY",10,GOLD));
         View art = new HardwareArt(this); art.setContentDescription("Decorative console and controller illustration"); content.addView(art,new LinearLayout.LayoutParams(-1,dp(145)));
-        LinearLayout location = row(); weighted(location,text("COLORADO  /  " + store.prefs.getString("zip", "80202"),12,MUTED)); location.addView(button("Settings",this::settings)); content.addView(location);
-        content.addView(text("Online stock & USD prices. For Colorado pickup, set your store on the retailer’s site.",12,MUTED));
+        LinearLayout location = row(); weighted(location,text("US ZIP  /  " + store.prefs.getString("zip", Store.DEFAULT_ZIP),12,MUTED)); location.addView(button("Settings",this::settings)); content.addView(location);
+        content.addView(text("Online listing reports & USD prices. Delivery and pickup for your ZIP are not automatically verified.",12,MUTED));
         gap(content, 12);
         LinearLayout actions = row(); Button refresh = button(refreshing ? "Checking retailers…" : "↻  Check stock",this::refresh); refresh.setEnabled(!refreshing); weighted(actions,refresh); weighted(actions,button("+ Add listing",this::addListing)); content.addView(actions);
         long last = store.prefs.getLong("lastRefresh",0);
-        content.addView(text(last == 0 ? "No checks yet · tap Check stock to begin" : "Last completed check · " + time(last),11,MUTED));
+        content.addView(text(last == 0 ? "No checks yet · tap Check stock to read listings" : "Last completed check · " + time(last),11,MUTED));
         gap(content, 14);
         HorizontalScrollView filters = new HorizontalScrollView(this); filters.setHorizontalScrollBarEnabled(false); LinearLayout chips = row();
         String[] ids = {"all","console","controller","stand"}; String[] labels = {"All hardware","Console","Controller","With stand"};
@@ -83,16 +83,17 @@ public final class MainActivity extends Activity {
         }
         if (count == 0) content.addView(text("No listings here yet. Add a retailer product page to start tracking.",16,TEXT));
         gap(content, 10); content.addView(text("Keep an eye on the quest.",23,GOLD));
-        content.addView(text("Checks use retailer product data when available. Unknown means unverified, and older observations may be stale. Always confirm price, seller, shipping and pickup at checkout.\n\nIndependent fan project · Not affiliated with Nintendo.",12,MUTED));
+        content.addView(text("A retailer’s general stock report does not confirm you can order for your ZIP. Nintendo online reports also check product orderability. Always confirm delivery, pickup, price and seller at checkout.\n\nIndependent fan project · Not affiliated with Nintendo.",12,MUTED));
     }
     private void listingCard(JSONObject listing) {
         LinearLayout card = column(); card.setPadding(dp(16),dp(13),dp(16),dp(14)); card.setBackground(background(CARD,16));
         LinearLayout top = row(); TextView retailer = text(listing.optString("retailer").toUpperCase(Locale.US),11,GOLD); retailer.setLetterSpacing(.12f); weighted(top,retailer);
         String stock = listing.optString("stock","Unknown");
-        TextView badge = text(stock,12,stock.equals("In stock") ? Color.rgb(143,226,170) : MUTED); top.addView(badge); card.addView(top);
+        TextView badge = text(stock,12,MUTED); top.addView(badge); card.addView(top);
         card.addView(text(Store.title(listing.optString("variant")),21,TEXT)); card.addView(text("Zelda 40th Anniversary Edition",12,MUTED));
+        card.addView(text("ZIP " + store.prefs.getString("zip", Store.DEFAULT_ZIP) + " · delivery/pickup unverified",13,GOLD));
         String price = listing.optString("price");
-        card.addView(text(price.isEmpty() ? "Price unverified" : "$" + price + " USD",price.isEmpty() ? 15 : 26,TEXT));
+        card.addView(text(price.isEmpty() ? "Price unverified" : "$" + price + " USD · listed price",price.isEmpty() ? 15 : 26,TEXT));
         if (!listing.optString("target").isEmpty()) card.addView(text("Price alert at $" + listing.optString("target") + " or less",12,GOLD));
         long checked = listing.optLong("checked",0);
         card.addView(text(checked == 0 ? "Not checked yet" : "Observed " + time(checked),11,MUTED));
@@ -121,12 +122,12 @@ public final class MainActivity extends Activity {
     }
     private LinearLayout form() { LinearLayout view = column(); view.setPadding(dp(22),dp(8),dp(22),0); return view; }
     private void settings() {
-        LinearLayout form = form(); form.addView(text("Colorado location",14,GOLD));
-        EditText zip = input("ZIP code",store.prefs.getString("zip","80202"),InputType.TYPE_CLASS_NUMBER); form.addView(zip);
-        form.addView(text("A location reminder for pickup checks. Select this ZIP on each retailer’s site; the app cannot verify store-level inventory.",12,MUTED));
+        LinearLayout form = form(); form.addView(text("Your US ZIP code",14,GOLD));
+        EditText zip = input("ZIP code",store.prefs.getString("zip",Store.DEFAULT_ZIP),InputType.TYPE_CLASS_NUMBER); form.addView(zip);
+        form.addView(text("Your ZIP is a reminder only. Select it on the retailer’s site to check delivery and pickup; the app does not send ZIP-specific inventory queries.",12,MUTED));
         Switch background = new Switch(this); background.setText(R.string.background_checks); background.setTextColor(TEXT); background.setChecked(store.prefs.getBoolean("background",false)); form.addView(background);
         Switch alerts = new Switch(this); alerts.setText(R.string.alerts); alerts.setTextColor(TEXT); alerts.setChecked(store.prefs.getBoolean("alerts",false)); form.addView(alerts);
-        form.addView(text("Android controls timing and may delay checks. Alerts require background checks or a manual refresh. No account, analytics, or server; listings stay on this device.",12,MUTED));
+        form.addView(text("Alerts require a supported online orderability check; general listing flags do not trigger alerts. ZIP availability is never assumed. Android may delay background checks. Data stays on this device.",12,MUTED));
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Watch settings").setView(form).setNegativeButton("Cancel",null).setNeutralButton("Export history",(d,w) -> export()).setPositiveButton("Save",null).create();
         dialog.setOnShowListener(d -> dialog.getButton(-1).setOnClickListener(v -> {
             String value = zip.getText().toString().trim();

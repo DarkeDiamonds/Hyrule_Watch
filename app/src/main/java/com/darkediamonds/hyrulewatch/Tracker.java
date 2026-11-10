@@ -12,7 +12,13 @@ final class Tracker {
     private static final AtomicBoolean RUNNING = new AtomicBoolean();
     static boolean running() { return RUNNING.get(); }
     static void channel(Context context) {
-        context.getSystemService(NotificationManager.class).createNotificationChannel(new NotificationChannel("stock", "Restocks and price drops", NotificationManager.IMPORTANCE_DEFAULT));
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        manager.createNotificationChannel(new NotificationChannel("stock", "Online stock reports and price drops", NotificationManager.IMPORTANCE_DEFAULT));
+        Store store = new Store(context);
+        if (store.prefs.getInt("notificationPolicy", 0) < 2) {
+            manager.cancelAll(); // Remove notifications based on the old, unverified stock flags.
+            store.prefs.edit().putInt("notificationPolicy", 2).apply();
+        }
     }
     static void refresh(Context context) {
         if (!RUNNING.compareAndSet(false, true)) return;
@@ -26,8 +32,14 @@ final class Tracker {
                 OfferParser.Offer offer = OfferParser.UNKNOWN;
                 String note = "";
                 try {
-                    offer = OfferParser.parse(fetch(listing.optString("url")), listing.optString("variant"));
-                    if (offer.equals(OfferParser.UNKNOWN)) note = "Needs browser check · no unambiguous product offer";
+                    offer = OfferParser.parse(fetch(listing.optString("url")), listing.optString("variant"), listing.optString("url"));
+                    note = switch (offer.stock()) {
+                        case "Not orderable online" -> "Nintendo marks this product unavailable to order online.";
+                        case "Online stock reported", "Online preorder reported" -> "Nintendo reports online orderability. Delivery to your ZIP is not verified.";
+                        case "Availability unverified" -> "A general listing stock flag cannot confirm delivery or pickup. Check the retailer.";
+                        case "Unknown" -> "Needs browser check · no reliable availability data";
+                        default -> "Retailer listing report · confirm current availability on the retailer’s site";
+                    };
                 } catch (IOException ex) { note = "Needs browser check · " + ex.getMessage(); }
                 final OfferParser.Offer result = offer;
                 final String detail = note;
@@ -48,7 +60,7 @@ final class Tracker {
                     String lastConfirmed = current.optString("confirmedStock");
                     boolean alert = current.optBoolean("watch", true) && shouldAlert(lastConfirmed,
                             current.optString("confirmedPrice"), result.stock(), result.price(), current.optString("target"));
-                    if (!result.stock().equals("Unknown")) Store.put(current, "confirmedStock", result.stock());
+                    if (!result.stock().equals("Unknown") && !result.stock().equals(OfferParser.UNVERIFIED)) Store.put(current, "confirmedStock", result.stock());
                     if (!result.price().isEmpty()) Store.put(current, "confirmedPrice", result.price());
                     if (alert && store.prefs.getBoolean("alerts", false)) notify(context, current);
                 });
@@ -57,8 +69,8 @@ final class Tracker {
         } finally { RUNNING.set(false); }
     }
     static boolean shouldAlert(String confirmedStock, String confirmedPrice, String stock, String price, String target) {
-        boolean buyable = stock.equals("In stock") || stock.equals("Preorder");
-        boolean wasBuyable = confirmedStock.equals("In stock") || confirmedStock.equals("Preorder");
+        boolean buyable = stock.equals(OfferParser.ONLINE) || stock.equals(OfferParser.PREORDER);
+        boolean wasBuyable = confirmedStock.equals(OfferParser.ONLINE) || confirmedStock.equals(OfferParser.PREORDER);
         return buyable && (!wasBuyable || (below(price, target) && !below(confirmedPrice, target)));
     }
     private static boolean below(String price, String target) {
@@ -71,7 +83,9 @@ final class Tracker {
             if (!Store.validUrl(address)) throw new IOException("unsupported retailer URL");
             HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
             connection.setConnectTimeout(12000); connection.setReadTimeout(12000); connection.setInstanceFollowRedirects(false);
-            connection.setRequestProperty("User-Agent", "HyruleWatch/1.0 (personal stock tracker)");
+            connection.setRequestProperty("User-Agent", "HyruleWatch/1.0.1 (personal stock tracker)");
+            connection.setUseCaches(false);
+            connection.setRequestProperty("Cache-Control", "no-cache");
             connection.setRequestProperty("Accept", "text/html,application/xhtml+xml");
             try {
                 int code = connection.getResponseCode();
@@ -102,7 +116,7 @@ final class Tracker {
         String price = listing.optString("price");
         Notification notification = new Notification.Builder(context, "stock").setSmallIcon(com.darkediamonds.hyrulewatch.R.drawable.ic_watch)
                 .setContentTitle(Store.title(listing.optString("variant")) + " · " + listing.optString("stock"))
-                .setContentText(listing.optString("retailer") + (price.isEmpty() ? "" : " · $" + price) + " · Verify at checkout")
+                .setContentText(listing.optString("retailer") + (price.isEmpty() ? "" : " · $" + price) + " · Delivery/pickup for your ZIP unverified")
                 .setContentIntent(pending).setAutoCancel(true).build();
         try { context.getSystemService(NotificationManager.class).notify(listing.optString("id").hashCode(), notification); }
         catch (SecurityException ignored) { /* User denied OS notification permission. */ }

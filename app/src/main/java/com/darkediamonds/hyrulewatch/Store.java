@@ -6,6 +6,7 @@ import java.net.URI;
 import java.util.*;
 
 final class Store {
+    static final String DEFAULT_ZIP = "80227";
     static final String[] VARIANTS = {"console", "controller", "stand"};
     static final String[] TITLES = {"Switch 2 console", "Pro Controller", "Pro Controller + stand"};
     static final Set<String> HOSTS = new HashSet<>(Arrays.asList("nintendo.com", "bestbuy.com", "gamestop.com", "target.com", "walmart.com"));
@@ -22,13 +23,17 @@ final class Store {
         } catch (IllegalArgumentException ex) { return false; }
     }
     JSONArray listings() {
-        try { return new JSONArray(prefs.getString("listings", "[]")); }
+        try {
+            JSONArray rows = new JSONArray(prefs.getString("listings", "[]"));
+            for (int i = 0; i < rows.length(); i++) migrateAvailability(rows.optJSONObject(i));
+            return rows;
+        }
         catch (JSONException ex) { throw new IllegalStateException("Saved listings could not be read", ex); }
     }
     void save(JSONArray rows) { if (!prefs.edit().putString("listings", rows.toString()).commit()) throw new IllegalStateException("Could not save listings"); }
     void seed() {
         synchronized (LOCK) {
-            if (prefs.contains("listings")) return;
+            if (prefs.contains("listings")) { save(listings()); return; }
             JSONArray rows = new JSONArray();
             add(rows, "Nintendo", "console", "https://www.nintendo.com/us/store/products/nintendo-switch-2-the-legend-of-zelda-40th-anniversary-edition-121642/");
             add(rows, "Nintendo", "controller", "https://www.nintendo.com/us/store/products/nintendo-switch-2-pro-controller-the-legend-of-zelda-40th-anniversary-edition-127074/");
@@ -41,8 +46,22 @@ final class Store {
         }
     }
     static void add(JSONArray rows, String retailer, String variant, String url) {
-        try { rows.put(new JSONObject().put("id", UUID.randomUUID().toString()).put("retailer", retailer).put("variant", variant).put("url", url).put("stock", "Unknown").put("price", "").put("target", "").put("watch", true).put("history", new JSONArray())); }
+        try { rows.put(new JSONObject().put("id", UUID.randomUUID().toString()).put("retailer", retailer).put("variant", variant).put("url", url).put("stock", "Unknown").put("price", "").put("target", "").put("watch", true).put("history", new JSONArray()).put("stockPolicy", 2)); }
         catch (JSONException ex) { throw new IllegalStateException(ex); }
+    }
+    static void migrateAvailability(JSONObject row) {
+        if (row.optInt("stockPolicy", 0) >= 2) return;
+        put(row, "stockPolicy", 2);
+        put(row, "legacyStock", row.optString("stock"));
+        put(row, "stock", "Unknown");
+        put(row, "note", "Previous availability estimate is unverified. Check again.");
+        row.remove("confirmedStock");
+        JSONArray history = row.optJSONArray("history");
+        if (history != null) for (int i = 0; i < history.length(); i++) {
+            JSONObject point = history.optJSONObject(i);
+            put(point, "legacyStock", point.optString("stock"));
+            put(point, "stock", "Legacy estimate (unverified)");
+        }
     }
     void change(String id, java.util.function.Consumer<JSONObject> mutation) {
         synchronized (LOCK) {
