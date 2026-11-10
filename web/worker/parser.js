@@ -1,5 +1,4 @@
 export const UNKNOWN = {stock:'Unknown',price:''};
-export const ONLINE = 'Online stock reported';
 const matches = (value,variant) => {
  const n=String(value||'').toLowerCase();
  return ['zelda','40th','switch','2'].every(s=>n.includes(s)) && (variant==='console' ? !['controller','case','protector'].some(s=>n.includes(s)) : n.includes('controller')&&n.includes('stand')===(variant==='stand'));
@@ -36,6 +35,7 @@ export function parseOffer(html,variant,address){
   }
  }catch{}
  if(salable===false)return {...raw,stock:'Not orderable online'};
- if(raw.stock==='In stock'||raw.stock==='Preorder')return {...raw,stock:salable===true?(raw.stock==='In stock'?ONLINE:'Online preorder reported'):'Availability unverified'};
+ // General page state cannot establish stock at a particular store or distance.
+ if(raw.stock==='In stock'||raw.stock==='Preorder')return {...raw,stock:'Availability unverified'};
  return raw;
 }
